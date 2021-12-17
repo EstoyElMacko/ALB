@@ -19,11 +19,11 @@
 **/*.parameters.json
 **/*.parameters.?.json
 **/test.*
-**/test*.ps1
 
 # secrets
 **/*.pfx
 **/*.cer
+**/*.pem
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
