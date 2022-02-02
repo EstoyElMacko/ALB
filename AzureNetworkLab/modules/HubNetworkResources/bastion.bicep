@@ -24,8 +24,7 @@ resource bastionPublicIP 'Microsoft.Network/publicIPAddresses@2021-02-01' = {
   tags: {}
 }
 
-
-resource bastionHostName_resource 'Microsoft.Network/bastionHosts@2021-02-01' = {
+resource bastion 'Microsoft.Network/bastionHosts@2021-02-01' = {
   name: bastionHostName
   location: resourceGroup().location
   sku: {
@@ -47,7 +46,6 @@ resource bastionHostName_resource 'Microsoft.Network/bastionHosts@2021-02-01' = 
     ]
   }
   tags: {}
-  dependsOn: [
-    bastionPublicIP
-  ]
 }
+
+output bastionId string = bastion.id
