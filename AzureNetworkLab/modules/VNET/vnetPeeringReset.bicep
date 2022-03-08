@@ -79,6 +79,5 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2020-10-01' = i
   }
 }
 
-//IMPORTANT: Uncomment below after testing !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 output disconnectedFound bool = deploymentScript.properties.outputs.DisconnectedFound
 output noDisconnected bool = deploymentScript.properties.outputs.noDisconnected

@@ -7,6 +7,9 @@ param remoteVnetName string
 @description('Resoruce group name that contains the remote VNET')
 param remoteVnetRgName string
 
+@description('Optional parameter to pass the subscription ID that contains the remote VNET if it is in a different subscription that the resoruce where the local VNET is located. Note that the format expected is <guid>, not the resource ID in format /subscriptions/<guid>')
+param remoteVnetSubscriptionId string = subscription().subscriptionId
+
 @description('Allows traffic that did not originate from the remote VNET (i.e. was forwarded by a virtual network appliance in the remnote VNET). This value will normally be false in a hub VNET and ')
 param allowForwardedTraffic bool
 
@@ -27,7 +30,7 @@ param deploy bool = true
 
 resource remoteVnet 'Microsoft.Network/virtualNetworks@2021-02-01' existing = {
   name: remoteVnetName
-  scope: resourceGroup(remoteVnetRgName)
+  scope: resourceGroup(remoteVnetSubscriptionId, remoteVnetRgName)
 }
 
 var peerName = '${vnetName}_to_${remoteVnetName}'
@@ -48,6 +51,13 @@ resource localVnet 'Microsoft.Network/virtualNetworks@2021-02-01' existing = {
   }
 }
 
-output peerName string = localVnet::peer.name
-output peerId string = localVnet::peer.id
-output peerProperties object = localVnet::peer.properties
+output localVnetInfo object = {
+  name: vnetName
+  resourceGroupName: resourceGroup().name
+  subscriptionId: subscription().id
+}
+output remoteVnetInfo object = {
+  name: remoteVnetName
+  resourceGroupName: remoteVnetRgName
+  subscriptionId: remoteVnetSubscriptionId
+}

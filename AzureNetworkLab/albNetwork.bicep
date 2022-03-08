@@ -1,7 +1,14 @@
 //ToDo: replace all hardcoded resource names with parameters. Look for name:\s*'.+?' (will pick up some variables, so no replace-all)
+//ToDo: Develop custom role to allow managed identity to create/reset VNET peering
 
 @description('IP address of one or more custom DNS servers (i.e., Azure Lab Builder domain controller(s))')
-param albDnsServerIPs array
+param albDnsServerIPs array = [
+  '10.1.0.5'
+]
+
+@description('Name of managed identity created to manage VNET peering')
+param peeringResetIdenittyName string = 'gml-eus-templateScript-mId'
+
 
 @description('Boolean value to determine if Azure Bastion host should be deployed')
 param deployBastionHost bool = true
@@ -9,11 +16,14 @@ param deployBastionHost bool = true
 @description('Bolean value to determine if Azure Firewall Policy should be deployed. Use false if no changes have been made to template since last deployment to shorten overall deployment time.')
 param deployAzureFirewallPolicy bool = false
 
+@description('Bolean value to determine if the hub-and-spoke vnets will be peered. Set to true to establish the peerings and leave as false for quick deployments when they are already peered.')
+param deployVnetPeering bool = false
+
 @description('Name to give Azure Firewall')
-param azureFirewallName string
+param azureFirewallName string = 'gmg-eus-hub-firewall'
 
 @description('Name of Azure Firewall Policy')
-param azureFirewallPolicyName string
+param azureFirewallPolicyName string = 'gmg-eus-hub-fwPolicy'
 /*
 This is the main template for deploying a hub-and-spoke VNET infrastructure for Azure Lab Builders. The template and
 its modules are an attempt to find the balance between complexity and compatibility in consolidating a collection
@@ -264,5 +274,66 @@ module azureFirewall 'modules/HubNetworkResources/firewall.bicep' = {
     virtualNetworkName: hubVnet.outputs.vnetName
   }
 }
+
+//*** Reset VNET peering (ensure no peerings are in 'Disconnected' state or peering operions will fail) ***
+
+// create managed identity to reset peerings
+resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = if (deployVnetPeering){
+  name: peeringResetIdenittyName
+  location: resourceGroup().location
+}
+
+
+var networkContributorRoleDefinitionId = resourceId('Microsoft.Authorization/roleDefinitions', '4d97b98b-1d4f-4787-a291-c67834d212e7')
+// assign managed identity the network contributor role at the current subscription.
+module networkContributorRoleAssignment 'modules/Roles/subscriptionRoleAssignment.bicep' = if (deployVnetPeering){
+  scope: subscription()
+  name: 'assignNetworkContributorToSubscription'
+  params: {
+    //Note: the line below returns the principal ID if deployVnetPeering is true, but 'na' if it is not; avoids error if value from non-deployed resource is called
+    principalId: deployVnetPeering ? managedIdentity.properties.principalId : 'na'
+    roleDefinitionId: networkContributorRoleDefinitionId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Note: call reset module once per resource group. Peer reset template can accept multiple VNET names in a single deployment, but they must all be in the same resoruce group
+module resetExternalVNETs 'modules/VNET/vnetPeeringReset.bicep' = if (deployVnetPeering){
+  name: 'resetExternalVnets'
+  params: {
+    managedIdentityId: managedIdentity.id
+    resourceGroupName: existingVnets.albCoreVent.resourceGroupName
+    vnetNames: [
+      existingVnets.albCoreVent.name
+    ]
+  }
+}
+
+var newVnetNames = [for vnetData in items(newVnets): vnetData.value.Name]
+
+module resetNewVnetsPeering 'modules/VNET/vnetPeeringReset.bicep' = if (deployVnetPeering){
+  name: 'resetNewVnetsPeering'
+  params: {
+    managedIdentityId: managedIdentity.id
+    resourceGroupName: resourceGroup().name
+    vnetNames: newVnetNames
+  }
+}
+  
+// ** Peer VNETs **
+module hubAndSpoke 'modules/VNET/peerMap.bicep' = {
+  name: 'initiateHubAndSpokePeering'
+  params: {
+    hubVnetId: hubVnet.outputs.vnetId
+    spokeVnetIds: [
+      albVnet.id
+      dnsIntegratedVnet.outputs.vnetId
+      dnsStandaloneVnet.outputs.vnetId
+    ]
+  }
+}
+
+
 /*
+
 */
