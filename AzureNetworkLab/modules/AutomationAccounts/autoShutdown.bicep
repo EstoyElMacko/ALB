@@ -31,20 +31,8 @@ resource runbook_removeAzureBastion 'Microsoft.Automation/automationAccounts/run
     logActivityTrace: 0
     publishContentLink: {
       version: '1.0.0'
-      
+      uri: 'https://github.com/EstoyElMacko/ALB/blob/EstoyElMack_12-5-2021/runbooks/Remove-AzureBastion.ps1'
     }
-  }
-}
-
-resource runbook_startAzureFirewall 'Microsoft.Automation/automationAccounts/runbooks@2019-06-01' = {
-  parent: automationAccount
-  name: 'Start-AzureFirewall'
-  location: location
-  properties: {
-    runbookType: 'PowerShell'
-    logVerbose: false
-    logProgress: false
-    logActivityTrace: 0
   }
 }
 
@@ -57,8 +45,27 @@ resource runbook_stopAzureFirewall 'Microsoft.Automation/automationAccounts/runb
     logVerbose: false
     logProgress: false
     logActivityTrace: 0
+    publishContentLink: {
+      version: '1.0.0'
+      uri: 'https://raw.githubusercontent.com/EstoyElMacko/ALB/EstoyElMack_12-5-2021/runbooks/Stop-AzureFirewall.ps1'
+    }
+
   }
 }
+
+/*
+resource runbook_startAzureFirewall 'Microsoft.Automation/automationAccounts/runbooks@2019-06-01' = {
+  parent: automationAccount
+  name: 'Start-AzureFirewall'
+  location: location
+  properties: {
+    runbookType: 'PowerShell'
+    logVerbose: false
+    logProgress: false
+    logActivityTrace: 0
+  }
+}
+*/
 
 resource schedule_nightlyShutdown 'Microsoft.Automation/automationAccounts/schedules@2020-01-13-preview' = {
   parent: automationAccount
