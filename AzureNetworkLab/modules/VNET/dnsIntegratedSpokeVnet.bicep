@@ -25,9 +25,13 @@ param aksDemoSubnet_routeTableId string
 
 @description('name of the AKS Demo subnet')
 param aksDemoSubnetName string = 'AKS-Demo'
+
+@description('Default location is the resource gorup location')
+param location string = resourceGroup().location
+
 resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
   name: vnetName
-  location: resourceGroup().location
+  location: location
   properties: {
     addressSpace: {
       addressPrefixes: vnetAddressRanges
@@ -53,6 +57,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
   }
 }
 
+// Creating second refrence after creation to enable direct subnet access
 resource vnetRef 'Microsoft.Network/virtualNetworks@2021-05-01' existing = {
   name: vnet.name
   resource aksDemoSubnet 'subnets' existing = {
@@ -63,5 +68,6 @@ resource vnetRef 'Microsoft.Network/virtualNetworks@2021-05-01' existing = {
 output vnetName string = vnet.name
 output vnetId string = vnet.id
 output vnetAddressPrefixes array = vnet.properties.addressSpace.addressPrefixes
-output azureFirewallSubnetId string = vnetRef::aksDemoSubnet.id
-output azureFirewallSubnetRange string = vnetRef::aksDemoSubnet.properties.addressPrefix
+output aksDemoSubnetName string = vnetRef::aksDemoSubnet.name
+output aksDemoSubnetId string = vnetRef::aksDemoSubnet.id
+output aksDemoSubnetRange string = vnetRef::aksDemoSubnet.properties.addressPrefix

@@ -1,8 +1,11 @@
 @description('Route Table name')
 param routeTableName string
 
-@description('Azure Firewall private IP address (acts as simple routing device)')
+@description('private IP address for virtual network appliance to route traffic to internal destinations. If Azure Firewall routes internal and internet traffic, use the Azure Firewall private IP address for this value')
 param virtualNetworkRouterIpAddress string
+
+@description('Private IP address for internal NIC of Azure Firewall')
+param azureFirewallPrivateIpAddress string
 
 @description('Default location is the resource gorup location')
 param location string = resourceGroup().location
@@ -25,7 +28,8 @@ resource routeTable 'Microsoft.Network/routeTables@2021-05-01' = {
         name: 'defualt'
         properties: {
           addressPrefix: '0.0.0.0/0'
-          nextHopType: 'Internet'
+          nextHopType: 'VirtualAppliance'
+          nextHopIpAddress: azureFirewallPrivateIpAddress
         }
       }
     ]

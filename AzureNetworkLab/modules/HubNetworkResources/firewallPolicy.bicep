@@ -4,10 +4,15 @@ param firewallPolicyName string
 @description('CIDR format IP range for subnet where AD domain controllers are located')
 param domainControllerSubnetIpRanges array
 
+@description('CIDR format IP range of AKS cluster subnets. Used to ensure AKS service traffic is allowed to internet')
+param azureKubernetesServiceSubnetRanges array
+
+@description('Default location is the resource group location')
+param location string = resourceGroup().location
 
 resource fwPolicy 'Microsoft.Network/firewallPolicies@2021-05-01' = {
   name: firewallPolicyName
-  location: resourceGroup().location
+  location: location
   properties: {
     dnsSettings: {
       enableProxy: true
@@ -40,8 +45,152 @@ resource fwPolicy 'Microsoft.Network/firewallPolicies@2021-05-01' = {
     ]
     properties: {
       priority: 300
+      ruleCollections: [
+        {
+          name: 'AKS-Service-Traffic-Network-Rules'
+          priority: 200
+          ruleCollectionType: 'FirewallPolicyFilterRuleCollection'
+          action: {
+            type: 'Allow'
+          }
+          rules: [
+            {
+              ruleType: 'NetworkRule'
+              name: 'aks nodes to controller - UDP'
+              ipProtocols: [
+                'UDP'
+              ]
+              sourceAddresses: azureKubernetesServiceSubnetRanges
+              sourceIpGroups: []
+              destinationAddresses: [
+                'AzureCloud'
+              ]
+              destinationIpGroups: []
+              destinationFqdns: []
+              destinationPorts: [
+                '1194'
+              ]
+            }
+            {
+              ruleType: 'NetworkRule'
+              name: 'aks nodes to controller - TCP'
+              ipProtocols: [
+                'TCP'
+              ]
+              sourceAddresses: azureKubernetesServiceSubnetRanges
+              sourceIpGroups: []
+              destinationAddresses: [
+                'AzureCloud'
+              ]
+              destinationIpGroups: []
+              destinationFqdns: []
+              destinationPorts: [
+                '9000'
+              ]
+            }
+            {
+              ruleType: 'NetworkRule'
+              name: 'aks nodes to NTP'
+              ipProtocols: [
+                'UDP'
+              ]
+              sourceAddresses: azureKubernetesServiceSubnetRanges
+              sourceIpGroups: []
+              destinationAddresses: []
+              destinationIpGroups: []
+              destinationFqdns: [
+                'ntp.ubuntu.com'
+              ]
+              destinationPorts: [
+                '123'
+              ]
+            }
+            {
+              ruleType: 'NetworkRule'
+              name: 'aks nodes to DNS'
+              ipProtocols: [
+                'UDP'
+              ]
+              sourceAddresses: azureKubernetesServiceSubnetRanges
+              sourceIpGroups: []
+              destinationAddresses: [
+                '*'
+              ]
+              destinationIpGroups: []
+              destinationFqdns: []
+              destinationPorts: [
+                '53'
+              ]
+            }
+            {
+              ruleType: 'NetworkRule'
+              name: 'Azure Monitor'
+              ipProtocols: [
+                'TCP'
+              ]
+              sourceAddresses: azureKubernetesServiceSubnetRanges
+              sourceIpGroups: []
+              destinationAddresses: [
+                'AzureMonitor'
+              ]
+              destinationIpGroups: []
+              destinationFqdns: []
+              destinationPorts: [
+                '443'
+              ]
+            }
+            {
+              ruleType: 'NetworkRule'
+              name: 'Azure Storage'
+              ipProtocols: [
+                'TCP'
+              ]
+              sourceAddresses: azureKubernetesServiceSubnetRanges
+              sourceIpGroups: []
+              destinationAddresses: [
+                'Storage'
+              ]
+              destinationIpGroups: []
+              destinationFqdns: []
+              destinationPorts: [
+                '443'
+              ]
+            }
+          ]
+        }
+        {
+          name: 'AKS-Service-Traffic-Application'
+          priority: 300
+          ruleCollectionType: 'FirewallPolicyFilterRuleCollection'
+          action: {
+            type: 'Allow'
+          }
+          rules: [
+            {
+              ruleType: 'ApplicationRule'
+              name: 'AKS Service Traffic'
+              protocols: [
+                {
+                  protocolType: 'Https'
+                  port: 443
+                }
+              ]
+              fqdnTags: [
+                'AzureKubernetesService'
+              ]
+              webCategories: []
+              targetFqdns: []
+              targetUrls: []
+              terminateTLS: false
+              sourceAddresses: azureKubernetesServiceSubnetRanges
+              destinationAddresses: []
+              sourceIpGroups: []
+            }
+          ]
+        }
+      ]
+      }
     }
-  }
   resource defaultruleCollectionGroup 'ruleCollectionGroups' = {
     name: 'defaultRuleCollectionGroups'
     dependsOn: [

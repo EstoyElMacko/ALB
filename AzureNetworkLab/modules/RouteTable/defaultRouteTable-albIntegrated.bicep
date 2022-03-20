@@ -4,9 +4,12 @@ param routeTableName string
 @description('Azure Firewall private IP address (acts as simple routing device)')
 param virtualNetworkRouterIpAddress string
 
+@description('Default location is the resource gorup location')
+param location string = resourceGroup().location
+
 resource routeTable 'Microsoft.Network/routeTables@2021-05-01' = {
   name: routeTableName
-  location: resourceGroup().location
+  location: location
   properties: {
     disableBgpRoutePropagation: false
     routes: [

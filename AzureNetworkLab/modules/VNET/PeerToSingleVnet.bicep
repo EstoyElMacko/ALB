@@ -54,7 +54,8 @@ resource localVnet 'Microsoft.Network/virtualNetworks@2021-02-01' existing = {
 output localVnetInfo object = {
   name: vnetName
   resourceGroupName: resourceGroup().name
-  subscriptionId: subscription().id
+  //Note: use subscription().subscriptionId returns the subscription GUID only, whereas subscription().Id returns /subscriptions/<subscription GUID>
+  subscriptionId: subscription().subscriptionId
 }
 output remoteVnetInfo object = {
   name: remoteVnetName

@@ -23,21 +23,34 @@ var spokeVnetInfo = [for spokeParts in spokeVnetParts: {
 }]
 
 // Peer hub to all spokes
-module hubToSpokePeering 'PeerVnet.bicep' = [for spokeInfo in spokeVnetInfo: {
-  name: 'peer_${hubVnetInfo.name}_to_${spokeInfo.name}'
+module hubToSpokePeering 'peerToMultipleVnets.bicep' = {
+  name: 'peerHubToAllSpokes'
   scope: resourceGroup(hubVnetInfo.subscriptionId, hubVnetInfo.resourceGroupName)
   params: {
     vnetName: hubVnetInfo.name
-    remoteVnetName: spokeInfo.name
-    remoteVnetRgName: spokeInfo.resourceGroupName
-    remoteVnetSubscriptionId: spokeInfo.resourceGroupName
+    remoteVnetIds: spokeVnetIds
     allowForwardedTraffic: false
     allowGatewayTransit: false
     useRemoteGateways: false
+    deploy: true
+  }
+}
+
+module spokeToHubPeering 'PeerToMultipleVnets.bicep' = [for spokeInfo in spokeVnetInfo: {
+  name: 'peer_${spokeInfo.name}_to_${hubVnetInfo.name}'
+  scope: resourceGroup(spokeInfo.subscriptionId, spokeInfo.resourceGroupName)
+  params: {
+    vnetName: spokeInfo.name
+    remoteVnetIds: array(hubVnetId)
+    allowForwardedTraffic: true
+    allowGatewayTransit: false
+    useRemoteGateways: false
+    deploy: true
   }
 }]
 
-module spokeToHubPeering 'PeerVnet.bicep' = [for spokeInfo in spokeVnetInfo: {
+/*
+module spokeToHubPeering 'peerToSingleVnet.bicep' = [for spokeInfo in spokeVnetInfo: {
   name: 'peer_${spokeInfo.name}_to_${hubVnetInfo.name}'
   scope: resourceGroup(spokeInfo.subscriptionId, spokeInfo.resourceGroupName)
   params: {
@@ -48,14 +61,9 @@ module spokeToHubPeering 'PeerVnet.bicep' = [for spokeInfo in spokeVnetInfo: {
     allowForwardedTraffic: true
     allowGatewayTransit: false
     useRemoteGateways: false
+    deploy: true
   }
 }]
 
-
-output tempPeerInfo array = [for (peer, index) in spokeVnetInfo: {
-  local: hubToSpokePeering[index].outputs.localVnetInfo
-  remote: spokeToHubPeering[index].outputs.remoteVnetInfo
-}]
-/*
 
 */

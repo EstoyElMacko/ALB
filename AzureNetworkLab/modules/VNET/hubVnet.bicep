@@ -28,11 +28,14 @@ param bastionSubnet_ipRange string
 param bastionSubnet_nsgId string
 // note: Azure Bastion does not support route tables
 
+@description('Default location is the resource gorup location')
+param location string = resourceGroup().location
+
 var firewallSubnetName = 'AzureFirewallSubnet'
 var bastionSubnetName = 'AzureBastionSubnet'
 resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
     name: vnetName
-    location: resourceGroup().location
+    location: location
     properties: {
       addressSpace: {
         addressPrefixes: vnetAddressRanges

@@ -2,6 +2,10 @@ param bastionHostName string
 param vnetName string
 param vnetResourceGroupName string
 
+@description('Default location is the resource gorup location')
+param location string = resourceGroup().location
+
+
 var publicIpAddressName = '${bastionHostName}_PIP'
 
 resource vnet 'Microsoft.Network/virtualNetworks@2021-02-01' existing = {
@@ -14,7 +18,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2021-02-01' existing = {
 
 resource bastionPublicIP 'Microsoft.Network/publicIPAddresses@2021-02-01' = {
   name: publicIpAddressName
-  location: resourceGroup().location
+  location: location
   sku: {
     name: 'Standard'
   }
@@ -26,7 +30,7 @@ resource bastionPublicIP 'Microsoft.Network/publicIPAddresses@2021-02-01' = {
 
 resource bastion 'Microsoft.Network/bastionHosts@2021-02-01' = {
   name: bastionHostName
-  location: resourceGroup().location
+  location: location
   sku: {
     name: 'Standard'
   }

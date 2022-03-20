@@ -1,9 +1,13 @@
 @description('Network Security Group name')
 param nsgName string
 
+@description('Default location is the resource gorup location')
+param location string = resourceGroup().location
+
+
 resource nsg 'Microsoft.Network/networkSecurityGroups@2021-05-01' = {
   name: nsgName
-  location: resourceGroup().location
+  location: location
   properties: {
     securityRules: [
       // Inbound rules

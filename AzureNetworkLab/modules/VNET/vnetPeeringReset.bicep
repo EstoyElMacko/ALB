@@ -10,11 +10,14 @@ param managedIdentityId string
 @description('A uniqueness value used to ensure the deployment script is ran every time it is invoked. Without this value, the script will not execute after the first time unless something in the script has changed.')
 param currentTime string = utcNow()
 
+@description('Default location is the resource gorup location')
+param location string = resourceGroup().location
+
 var vnetNamesString = string(vnetNames)
 
 resource deploymentScript 'Microsoft.Resources/deploymentScripts@2020-10-01' = if (true) {
   name: 'GetDisconnectedPeerings_${currentTime}'
-  location: resourceGroup().location
+  location: location
   kind: 'AzurePowerShell'
   identity: {
     type: 'UserAssigned'

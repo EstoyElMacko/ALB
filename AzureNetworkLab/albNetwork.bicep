@@ -9,7 +9,6 @@ param albDnsServerIPs array = [
 @description('Name of managed identity created to manage VNET peering')
 param peeringResetIdenittyName string = 'gml-eus-templateScript-mId'
 
-
 @description('Boolean value to determine if Azure Bastion host should be deployed')
 param deployBastionHost bool = true
 
@@ -24,6 +23,9 @@ param azureFirewallName string = 'gmg-eus-hub-firewall'
 
 @description('Name of Azure Firewall Policy')
 param azureFirewallPolicyName string = 'gmg-eus-hub-fwPolicy'
+
+@description('Default location is the resource gorup location')
+param location string = resourceGroup().location
 /*
 This is the main template for deploying a hub-and-spoke VNET infrastructure for Azure Lab Builders. The template and
 its modules are an attempt to find the balance between complexity and compatibility in consolidating a collection
@@ -144,9 +146,22 @@ var newVnets = {
   }
 }
 
+// Calculate Azure Firewall private IP address - No matter the size of the subnet, private IP will be first available, which is last octet of the subnet CIDR range + 4
 var azFirewallSubnetAddress = split(newVnets.hub.subnets.AzureFirewallSubnet.addressPrefix, '/')[0]
 var azFirewallSubnetParts = split(azFirewallSubnetAddress, '.')
 var azFirewallPrivateIp = '${azFirewallSubnetParts[0]}.${azFirewallSubnetParts[1]}.${azFirewallSubnetParts[2]}.${int(azFirewallSubnetParts[3]) + 4}'
+
+// Assign Azure Policy to prohibit public IP addressed in the current subscription with exception of current resource group
+module policy_noPublicIp 'modules/Policy/assignNoPublicIpPolicy.bicep' = {
+  name: 'deployPolicyAssignment_noPublicIp'
+  scope: subscription()
+  params: {
+    exclusionScopeResourceIDs: [
+      // Get subscription-scoped resource ID of the deploymen resource group. Subscription scope Resource IDs are formatted differently than RG scoped IDs
+      subscriptionResourceId(subscription().subscriptionId,'Microsoft.Resources/resourceGroups', resourceGroup().name)
+    ]
+  }
+}
 
 // Network Security Groups
 module nsg_spokeDefault 'modules/NSG/defaultNsg.bicep' = {
@@ -154,6 +169,7 @@ module nsg_spokeDefault 'modules/NSG/defaultNsg.bicep' = {
   params: {
     nsgName: 'gmg-eus-default-nsg'
     spokeVnetCidrIpRanges: union(albVnet.properties.addressSpace.addressPrefixes, newVnets.dnsIntegrated.addressPrefixes, newVnets.dnsStandalone.addressPrefixes)
+    location: location
   }
 }
 
@@ -161,6 +177,7 @@ module nsg_hubDefault 'modules/NSG/defaultHubNsg.bicep' = {
   name: 'deployHubDefaultNsg'
   params: {
     nsgName: 'gmg-eus-hubDefault-nsg'
+    location: location
   }
 }
 
@@ -168,6 +185,7 @@ module nsg_bastion 'modules/NSG/bastionSubnetNSG.bicep' = {
   name: 'deployAzureBastionNSG'
   params: {
     nsgName: 'gmg-eus-bastion-nsg'
+    location: location
   }
 }
 
@@ -177,6 +195,7 @@ module routeTable_default 'modules/RouteTable/defaultRouteTable-albIntegrated.bi
   params: {
     routeTableName: 'gmg-eus-labIntegratedDefault-rt'
     virtualNetworkRouterIpAddress: azFirewallPrivateIp
+    location: location
   }
 }
 
@@ -185,6 +204,17 @@ module routeTable_azureFirewall 'modules/RouteTable/routeTable-azureFirewall.bic
   params: {
     routeTableName: 'gmg-eus-azureFirewall-rt'
     virtualNetworkRouterIpAddress: azFirewallPrivateIp
+    location: location
+  }
+}
+
+module routeTable_aksBehindAzureFirewall 'modules/RouteTable/routeTable-aksBehindAzureFirewall.bicep' = {
+  name: 'deployRouteTableForAksBehindAzFirewall'
+  params: {
+    routeTableName: 'gmg-eus-aksBehindAzureFirewall-rt'
+    azureFirewallPrivateIpAddress: azFirewallPrivateIp
+    virtualNetworkRouterIpAddress: azFirewallPrivateIp
+    location: location
   }
 }
 
@@ -207,6 +237,7 @@ module hubVnet 'modules/VNET/hubVnet.bicep' = {
     firewallSubnet_routeTableId: routeTable_azureFirewall.outputs.routeTableId
     vnetAddressRanges: newVnets.hub.addressPrefixes
     vnetName: newVnets.hub.name
+    location: location
   }
 }
 
@@ -215,10 +246,11 @@ module dnsIntegratedVnet 'modules/VNET/dnsIntegratedSpokeVnet.bicep' = {
   params: {
     aksDemoSubnet_ipRange: newVnets.dnsIntegrated.subnets['AKS-Demo'].addressPrefix
     aksDemoSubnet_nsgId: nsg_spokeDefault.outputs.nsgId
-    aksDemoSubnet_routeTableId: routeTable_default.outputs.routeTableId
+    aksDemoSubnet_routeTableId: routeTable_aksBehindAzureFirewall.outputs.routeTableId
     dnsServerIPs: albDnsServerIPs
     vnetAddressRanges: newVnets.dnsIntegrated.addressPrefixes
     vnetName: newVnets.dnsIntegrated.name
+    location: location
   }
 }
 
@@ -230,6 +262,7 @@ module dnsStandaloneVnet 'modules/VNET/dnsStandaloneSpoke.bicep' = {
     defaultSubnet_routeTableId: routeTable_default.outputs.routeTableId
     vnetAddressRanges: newVnets.dnsStandalone.addressPrefixes
     vnetName: newVnets.dnsStandalone.name
+    location: location
   }
 }
 
@@ -238,8 +271,9 @@ module bastion 'modules/HubNetworkResources/bastion.bicep' = if (deployBastionHo
   name: 'deployAzureBastion'
   params: {
     bastionHostName: 'gmg-eus-hub-bastion'
-    vnetName: newVnets.hub.name
+    vnetName: hubVnet.outputs.vnetName
     vnetResourceGroupName: resourceGroup().name
+    location: location
   }
 }
 
@@ -248,6 +282,7 @@ module firewallNatPublicIps 'modules/HubNetworkResources/firewallNatPublicIPs.bi
   name: 'deployPublicIpsforFirewallNatRules'
   params: {
     wapPublicIpName: '${azureFirewallName}_WAP_PIP'
+    location: location
   }
 }
 output wapNatPipId string = firewallNatPublicIps.outputs.wapPublicIpId
@@ -256,10 +291,14 @@ output wapNatPipId string = firewallNatPublicIps.outputs.wapPublicIpId
 module firewallPolicy 'modules/HubNetworkResources/firewallPolicy.bicep' = if(deployAzureFirewallPolicy){
   name: 'deployAzureFirewallPolicy'
   params: {
+    firewallPolicyName: azureFirewallPolicyName
     domainControllerSubnetIpRanges: [
       albVnet::managementSubnet.properties.addressPrefix
     ]
-    firewallPolicyName: azureFirewallPolicyName
+    azureKubernetesServiceSubnetRanges: [
+      dnsIntegratedVnet.outputs.aksDemoSubnetRange
+    ]
+    location: location
   }
 }
 
@@ -272,6 +311,7 @@ module azureFirewall 'modules/HubNetworkResources/firewall.bicep' = {
     firewallName: 'gmg-eus-hub-firewall'
     firewallPolicyId: deployAzureFirewallPolicy ? firewallPolicy.outputs.policyId : firewallPolicyRef.id
     virtualNetworkName: hubVnet.outputs.vnetName
+    location: location
   }
 }
 
@@ -280,7 +320,7 @@ module azureFirewall 'modules/HubNetworkResources/firewall.bicep' = {
 // create managed identity to reset peerings
 resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = if (deployVnetPeering){
   name: peeringResetIdenittyName
-  location: resourceGroup().location
+  location: location
 }
 
 
@@ -300,12 +340,19 @@ module networkContributorRoleAssignment 'modules/Roles/subscriptionRoleAssignmen
 // Note: call reset module once per resource group. Peer reset template can accept multiple VNET names in a single deployment, but they must all be in the same resoruce group
 module resetExternalVNETs 'modules/VNET/vnetPeeringReset.bicep' = if (deployVnetPeering){
   name: 'resetExternalVnets'
+  dependsOn: [
+    hubVnet
+    albVnet
+    dnsIntegratedVnet
+    dnsStandaloneVnet
+  ]
   params: {
     managedIdentityId: managedIdentity.id
     resourceGroupName: existingVnets.albCoreVent.resourceGroupName
     vnetNames: [
       existingVnets.albCoreVent.name
     ]
+    location: location
   }
 }
 
@@ -313,15 +360,19 @@ var newVnetNames = [for vnetData in items(newVnets): vnetData.value.Name]
 
 module resetNewVnetsPeering 'modules/VNET/vnetPeeringReset.bicep' = if (deployVnetPeering){
   name: 'resetNewVnetsPeering'
+  dependsOn: [
+    resetExternalVNETs
+  ]
   params: {
     managedIdentityId: managedIdentity.id
     resourceGroupName: resourceGroup().name
     vnetNames: newVnetNames
+    location: location
   }
 }
   
 // ** Peer VNETs **
-module hubAndSpoke 'modules/VNET/peerMap.bicep' = {
+module hubAndSpoke 'modules/VNET/peerMap.bicep' = if (deployVnetPeering){
   name: 'initiateHubAndSpokePeering'
   params: {
     hubVnetId: hubVnet.outputs.vnetId
@@ -332,7 +383,6 @@ module hubAndSpoke 'modules/VNET/peerMap.bicep' = {
     ]
   }
 }
-
 
 /*
 

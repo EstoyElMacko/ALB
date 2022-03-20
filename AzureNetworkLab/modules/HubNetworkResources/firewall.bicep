@@ -7,6 +7,9 @@ param firewallPolicyId string
 @description('Name of the VNET the firewall will be attached to. Must be in the same resource group where the firewall is being deployed')
 param virtualNetworkName string
 
+@description('Default location is the resource gorup location')
+param location string = resourceGroup().location
+
 resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' existing = {
   name: virtualNetworkName
   resource firewallSubnet 'subnets' existing = {
@@ -16,7 +19,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' existing = {
 
 resource fwPublicIp 'Microsoft.Network/publicIPAddresses@2021-05-01' = {
   name: '${firewallName}_PIP'
-  location: resourceGroup().location
+  location: location
   sku: {
     name: 'Standard'
   }
@@ -27,7 +30,7 @@ resource fwPublicIp 'Microsoft.Network/publicIPAddresses@2021-05-01' = {
 
 resource firewall 'Microsoft.Network/azureFirewalls@2021-05-01' = {
   name: firewallName
-  location: resourceGroup().location
+  location: location
   zones: []
   properties: {
     firewallPolicy: {
