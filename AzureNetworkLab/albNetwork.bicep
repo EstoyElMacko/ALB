@@ -18,6 +18,13 @@ param deployAzureFirewallPolicy bool = false
 @description('Bolean value to determine if the hub-and-spoke vnets will be peered. Set to true to establish the peerings and leave as false for quick deployments when they are already peered.')
 param deployVnetPeering bool = false
 
+
+@description('Name of Azure Automation Account used to deprovision/shutdown/delete non-VM resources at night')
+param shudownAutomationAccountName string
+
+@description('Bolean value to determine if Azure Automation account should be deployed')
+param deployAutomationAccountScheduleJobs bool = false
+
 @description('Name to give Azure Firewall')
 param azureFirewallName string = 'gmg-eus-hub-firewall'
 
@@ -374,6 +381,9 @@ module resetNewVnetsPeering 'modules/VNET/vnetPeeringReset.bicep' = if (deployVn
 // ** Peer VNETs **
 module hubAndSpoke 'modules/VNET/peerMap.bicep' = if (deployVnetPeering){
   name: 'initiateHubAndSpokePeering'
+  dependsOn: [
+    resetNewVnetsPeering
+  ]
   params: {
     hubVnetId: hubVnet.outputs.vnetId
     spokeVnetIds: [
@@ -384,6 +394,15 @@ module hubAndSpoke 'modules/VNET/peerMap.bicep' = if (deployVnetPeering){
   }
 }
 
+// Deploy Automaiton Account to dealocate Azure Firewall and remove Azure Bastion every night
+module shutdownAutomation 'modules/AutomationAccounts/autoShutdown.bicep' = {
+  name: 'deployShutdownAutomationAccount'
+  params: {
+    automationAccountName: shudownAutomationAccountName
+    deployScheduleJob: deployAutomationAccountScheduleJobs
+    location: location
+  }
+}
 /*
 
 */
