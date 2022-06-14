@@ -21,7 +21,7 @@ resource fwPolicy 'Microsoft.Network/firewallPolicies@2021-05-01' = {
       tier: 'Standard'
     }
   }
-  //Important!!! Use dependOn to ensure each subresource only runs when the previous one finishes to avoid AnotherOperationInProgress deployment error
+  //Important!!! Use dependOn for each subresource after the first to ensure each subresource only runs when the previous one finishes; otherwise, template will throw AnotherOperationInProgress deployment error
   resource natRuleCollctionGroups 'ruleCollectionGroups' = {
     name: 'natRuleCollctionGroup'
     properties: {

@@ -1,11 +1,15 @@
 @description('Name of the automation account')
-param automationAccountName string = 'gml-eus-autoShutdownauto-autoAct'
+param automationAccountName string = 'gml-eus-autoShutdown-automation'
 
 
 @description('Determines if schedule will be deployed. Note: You cannot redeploy a schedule if any part of it already exists in the automation account. if the schedule already exists, it must be deleted before redeploying or it will cause the template to fail.')
 param deployScheduleJob bool = false
 
 @description('Time zone to use for automation shutdown schedule')
+@allowed([
+  // Ensure variable timeZoneOffsett is updated to provide 2 digit time zone offset for each additional time zone added to the allowed list
+  'America/New_York'
+])
 param timeZone string = 'America/New_York'
 
 @description('UTC formatted time string when template was executed. Do not pass value.')
@@ -21,7 +25,10 @@ param invokationTimeUTC string = utcNow()
 //var startDate = dateTimeAdd(invokationTimeUTC, 'P1D', 'yyyy-MM-dd')
 //var startTimeString = '${padLeft(gmtStartHour24, 2, '0')}:${padLeft(startMinute, 2, '0')}:00'
 //var startTime = '${startDate}T${startTimeString}'
-var timeString = '19:30:00-05:00'
+var timeZoneOffset = {
+  'America/New_York': '05'
+}
+var timeString = '19:30:00-${timeZoneOffset[timeZone]}:00'
 var scheduleDate = dateTimeAdd(templateRunTime, 'P1D')
 var startTime = '${split(scheduleDate,'T')[0]}T${timeString}'
 output templatRunTime string = templateRunTime

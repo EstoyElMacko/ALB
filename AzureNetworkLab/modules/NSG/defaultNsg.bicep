@@ -4,7 +4,7 @@ param nsgName string
 @description('Array of all CIDR format IP ranges assigned to spoke VNETs of hub-and-spoke network.')
 param spokeVnetCidrIpRanges array
 
-@description('Default location is the resource gorup location')
+@description('Default location is the resource group location')
 param location string = resourceGroup().location
 
 resource nsg 'Microsoft.Network/networkSecurityGroups@2021-05-01' = {
