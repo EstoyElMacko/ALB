@@ -15,7 +15,7 @@ param location string = resourceGroup().location
 
 var vnetNamesString = string(vnetNames)
 
-resource deploymentScript 'Microsoft.Resources/deploymentScripts@2020-10-01' = if (true) {
+resource deploymentScript 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
   name: 'GetDisconnectedPeerings_${currentTime}'
   location: location
   kind: 'AzurePowerShell'

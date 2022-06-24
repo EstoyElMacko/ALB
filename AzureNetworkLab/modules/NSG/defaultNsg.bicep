@@ -24,7 +24,8 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2021-05-01' = {
           sourcePortRange: '*'
           destinationAddressPrefix: '*'
           destinationPortRange: '*'
-          priority: 200
+          // Priority must be between 100 and 4096 - Using high number for this generalized rule to make it easy to block specific ranges if required
+          priority: 4000
           description: 'ensure inbound traffic from all spoke VNETs in hub-and-spoke network'
 
         }
@@ -38,11 +39,11 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2021-05-01' = {
           direction: 'Outbound'
           protocol: '*'
           // Note: Hub IP space is not explicitely added because Hub is peered to each spoke, and is therefore allowed via the default VirtualNetwork allow rule
-          sourceAddressPrefixes: spokeVnetCidrIpRanges
+          sourceAddressPrefix: '*'
           sourcePortRange: '*'
-          destinationAddressPrefix: '*'
+          destinationAddressPrefixes: spokeVnetCidrIpRanges
           destinationPortRange: '*'
-          priority: 200
+          priority: 4000
           description: 'ensure outbound traffic from all spoke VNETs in hub-and-spoke network'
 
         }

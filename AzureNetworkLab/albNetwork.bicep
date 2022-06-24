@@ -65,7 +65,7 @@ format:
 }
 */
 var existingVnets = {
-  albCoreVent: {
+  albCoreVnet: {
     name: 'gml-eus-alb-vnet'
     resourceGroupName: 'gml-eus-networking-rg'
     subnets: {
@@ -104,8 +104,6 @@ format:
     }
   }
 }
-
-
 */
 var newVnets = {
   // Central hub VNET, contains Azure Firewall (simple routing and HTTP/TCP packet filtering) and any virtual network appliances
@@ -164,7 +162,7 @@ module policy_noPublicIp 'modules/Policy/assignNoPublicIpPolicy.bicep' = {
   scope: subscription()
   params: {
     exclusionScopeResourceIDs: [
-      // Get subscription-scoped resource ID of the deploymen resource group. Subscription scope Resource IDs are formatted differently than RG scoped IDs
+      // Get subscription-scoped resource ID of the deployment resource group. Subscription scope Resource IDs are formatted differently than RG scoped IDs
       subscriptionResourceId(subscription().subscriptionId,'Microsoft.Resources/resourceGroups', resourceGroup().name)
     ]
   }
@@ -227,8 +225,8 @@ module routeTable_aksBehindAzureFirewall 'modules/RouteTable/routeTable-aksBehin
 
 // Reference existing VNETs that will be integrated into hub-and-spoke network
 resource albVnet 'Microsoft.Network/virtualNetworks@2021-05-01' existing = {
-  name: existingVnets.albCoreVent.name
-  scope: resourceGroup(existingVnets.albCoreVent.resourceGroupName)
+  name: existingVnets.albCoreVnet.name
+  scope: resourceGroup(existingVnets.albCoreVnet.resourceGroupName)
   resource managementSubnet 'subnets' existing = {
     name: 'management'
   }
@@ -355,9 +353,9 @@ module resetExternalVNETs 'modules/VNET/vnetPeeringReset.bicep' = if (deployVnet
   ]
   params: {
     managedIdentityId: managedIdentity.id
-    resourceGroupName: existingVnets.albCoreVent.resourceGroupName
+    resourceGroupName: existingVnets.albCoreVnet.resourceGroupName
     vnetNames: [
-      existingVnets.albCoreVent.name
+      existingVnets.albCoreVnet.name
     ]
     location: location
   }
